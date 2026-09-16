@@ -188,6 +188,28 @@
     border-radius: 50%; background: var(--accent); border: 3px solid #fff; cursor: pointer;
   }
   #replayTime { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+  .export-controls { display: flex; gap: 10px; margin-top: 10px; }
+  .export-controls .btn { flex: 1; max-width: none; padding: 10px 12px; font-size: 0.8rem; }
+  .export-progress {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin-top: 8px; font-size: 0.75rem; color: var(--muted);
+  }
+  .spinner {
+    width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 1s linear infinite; display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pro-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .pro-select {
+    background: rgba(255,255,255,0.1); border: 1px solid var(--card-border);
+    color: var(--text); border-radius: 8px; padding: 5px 10px; font-size: 0.8rem; outline: none;
+  }
+  .pro-tip {
+    margin-top: 10px; font-size: 0.8rem; color: var(--muted); line-height: 1.5;
+    background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px 10px;
+  }
 
   .history-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
   .history-item {
@@ -315,6 +337,16 @@
         <div class="metric-card"><div class="metric-value" id="headMove">– cm</div><div class="metric-label">Head Sway</div></div>
         <div class="metric-card"><div class="metric-value" id="impact">–</div><div class="metric-label">Impact</div></div>
       </div>
+
+      <div id="proPanel" class="panel hidden" style="margin-top:12px;">
+        <div class="pro-header">
+          <h3 style="flex:1;">🏆 Pro Benchmark</h3>
+          <select id="proSelect" class="pro-select"></select>
+        </div>
+        <table class="compare-table" id="proTable"></table>
+        <div class="pro-tip" id="proTip"></div>
+      </div>
+
       <div id="tipBox" class="tip-box hidden">
         <strong>AI Coach</strong>
         <div id="tipText"></div>
@@ -324,7 +356,7 @@
     <div id="replayPanel" class="panel hidden">
       <div class="panel-header">
         <h3>⏪ Impact Replay</h3>
-        <select id="replaySpeed" style="background:rgba(255,255,255,0.1);border:1px solid var(--card-border);color:var(--text);border-radius:8px;padding:4px 8px;font-size:0.75rem;outline:none;">
+        <select id="replaySpeed" class="pro-select">
           <option value="0.25">0.25×</option>
           <option value="0.5">0.5×</option>
           <option value="1">1×</option>
@@ -338,6 +370,13 @@
         <button id="replayPlay" class="btn secondary small">▶</button>
         <input type="range" id="replaySeek" min="0" max="100" value="0">
         <span id="replayTime">0.00s</span>
+      </div>
+      <div class="export-controls">
+        <button id="exportPngBtn" class="btn secondary" disabled>📸 Impact PNG</button>
+        <button id="exportClipBtn" class="btn secondary" disabled>🎬 Slow-mo Clip</button>
+      </div>
+      <div id="exportProgress" class="export-progress hidden">
+        <span class="spinner"></span> Exporting…
       </div>
     </div>
 
@@ -403,6 +442,8 @@ let poseClock = 0;
 let poseBusy = "live";
 let toastTimer = null;
 let compareUrls = [];
+let lastMetrics = null;
+let exporting = false;
 
 function poseTimestamp() {
   const t = performance.now();
@@ -800,12 +841,14 @@ async function analyseSwing(frames, blob, duration) {
     impactMethod: audioSpikeSec !== null ? "audio" : "wrist",
     view: $("viewMode").value
   };
+  lastMetrics = metrics;
 
   statusEl.textContent = "Analysis complete.";
   againBtn.classList.remove("hidden");
   navigator.vibrate?.(20);
 
   setupReplay(blob, impactT, duration);
+  renderProBenchmark(metrics);
 
   await saveSwing({
     timestamp: Date.now(),
@@ -874,6 +917,8 @@ const TRAIL_LENGTH = 12;
 
 function setupReplay(blob, impactTime, duration) {
   $("replayPanel").classList.remove("hidden");
+  $("exportPngBtn").disabled = false;
+  $("exportClipBtn").disabled = false;
   if (replayVideo.src) URL.revokeObjectURL(replayVideo.src);
 
   replayVideo.src = URL.createObjectURL(blob);
@@ -966,6 +1011,7 @@ $("replaySeek").addEventListener("change", () => {
 });
 
 replayVideo.addEventListener("timeupdate", () => {
+  if (exporting) return;
   const total = replayEnd - replayStart;
   const frac = total > 0 ? (replayVideo.currentTime - replayStart) / total : 0;
   $("replaySeek").value = Math.min(100, Math.max(0, frac * 100));
@@ -976,6 +1022,234 @@ replayVideo.addEventListener("timeupdate", () => {
     poseBusy = "live";
     $("replayPlay").textContent = "▶";
   }
+});
+
+function compositeReplayFrame(target, w, h) {
+  target.clearRect(0, 0, w, h);
+  try { target.drawImage(replayVideo, 0, 0, w, h); } catch {}
+  target.drawImage(replayCanvas, 0, 0, w, h);
+}
+
+function waitSeek(el, time) {
+  return new Promise(resolve => {
+    if (el.readyState >= 2 && Math.abs(el.currentTime - time) < 0.02) {
+      resolve();
+      return;
+    }
+    const onSeeked = () => {
+      el.removeEventListener("seeked", onSeeked);
+      resolve();
+    };
+    el.addEventListener("seeked", onSeeked);
+    el.currentTime = time;
+  });
+}
+
+function drawReplayPoseNow() {
+  if (!landmarker) return;
+  try {
+    const res = landmarker.detectForVideo(replayVideo, poseTimestamp());
+    drawReplayWithTrail(res.landmarks?.[0]);
+  } catch {
+    drawReplayWithTrail(null);
+  }
+}
+
+async function shareOrDownload(blob, filename, title) {
+  const file = new File([blob], filename, { type: blob.type });
+  try {
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title });
+      showToast("Shared!");
+      return;
+    }
+  } catch (e) {
+    if (e.name === "AbortError") return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Saved to downloads");
+}
+
+$("exportPngBtn").addEventListener("click", async () => {
+  if (!replayVideo.src || exporting) return;
+  const oldTime = replayVideo.currentTime;
+  const wasPaused = replayVideo.paused;
+  replayVideo.pause();
+  poseBusy = "replay";
+  replayTrail.length = 0;
+  try {
+    await waitSeek(replayVideo, replayImpact);
+    replayLastT = -1;
+    drawReplayPoseNow();
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const out = document.createElement("canvas");
+    out.width = replayCanvas.width;
+    out.height = replayCanvas.height;
+    compositeReplayFrame(out.getContext("2d"), out.width, out.height);
+    const blob = await new Promise(resolve => out.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("empty png");
+    await shareOrDownload(blob, `impact-${Date.now()}.png`, "My Golf Impact");
+  } catch (e) {
+    console.warn("Export PNG failed:", e);
+    showToast("Could not export PNG");
+  }
+  replayVideo.currentTime = oldTime;
+  poseBusy = wasPaused ? "live" : "replay";
+  if (!wasPaused) replayVideo.play().catch(() => {});
+});
+
+$("exportClipBtn").addEventListener("click", async () => {
+  if (!replayVideo.src || exporting) return;
+  const mime = ["video/webm;codecs=vp9", "video/webm", "video/mp4"].find(t => MediaRecorder.isTypeSupported(t));
+  if (!mime) {
+    showToast("Clip export not supported in this browser");
+    return;
+  }
+
+  exporting = true;
+  $("exportClipBtn").disabled = true;
+  $("exportPngBtn").disabled = true;
+  $("exportProgress").classList.remove("hidden");
+
+  const rate = parseFloat($("replaySpeed").value) || 0.25;
+  const start = replayStart;
+  const end = replayEnd;
+  const durationMs = Math.max(400, ((end - start) / rate) * 1000);
+
+  const out = document.createElement("canvas");
+  out.width = replayCanvas.width || 1280;
+  out.height = replayCanvas.height || 720;
+  out.style.display = "none";
+  document.body.appendChild(out);
+  const octx = out.getContext("2d");
+  const stream = out.captureStream(30);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const stopped = new Promise(resolve => { rec.onstop = resolve; });
+
+  const finishClip = async () => {
+    if (!exporting) return;
+    exporting = false;
+    replayVideo.pause();
+    poseBusy = "live";
+    try { if (rec.state !== "inactive") rec.stop(); } catch {}
+    await Promise.race([stopped, new Promise(r => setTimeout(r, 800))]);
+    out.remove();
+    $("exportClipBtn").disabled = false;
+    $("exportPngBtn").disabled = false;
+    $("exportProgress").classList.add("hidden");
+    $("replayPlay").textContent = "▶";
+    if (!chunks.length) {
+      showToast("Could not export clip");
+      return;
+    }
+    const blob = new Blob(chunks, { type: mime });
+    const ext = mime.includes("mp4") ? "mp4" : "webm";
+    await shareOrDownload(blob, `slowmo-${Date.now()}.${ext}`, "My Golf Slow-mo");
+  };
+
+  poseBusy = "replay";
+  replayTrail.length = 0;
+  replayVideo.playbackRate = rate;
+  await waitSeek(replayVideo, start);
+  replayLastT = -1;
+  rec.start(200);
+  replayVideo.play().catch(() => {});
+
+  const started = performance.now();
+  (function compositeLoop() {
+    if (!exporting) return;
+    compositeReplayFrame(octx, out.width, out.height);
+    if (replayVideo.currentTime >= end || performance.now() - started >= durationMs + 250) {
+      finishClip();
+      return;
+    }
+    requestAnimationFrame(compositeLoop);
+  })();
+});
+
+const PRO_BENCHMARKS = {
+  "Tour Average": {
+    shoulderTurn: 95,
+    hipTurn: 45,
+    tempoRatio: 3.0,
+    headSwayCm: 5,
+    score: 90,
+    description: "PGA Tour average: strong rotation, balanced tempo, minimal head movement."
+  },
+  "Jon Rahm": {
+    shoulderTurn: 110,
+    hipTurn: 55,
+    tempoRatio: 2.8,
+    headSwayCm: 4,
+    score: 95,
+    description: "Aggressive turn, explosive but controlled release. High tempo for power."
+  },
+  "Nelly Korda": {
+    shoulderTurn: 95,
+    hipTurn: 50,
+    tempoRatio: 3.2,
+    headSwayCm: 5,
+    score: 93,
+    description: "Efficient, repeatable swing with excellent tempo and balance."
+  }
+};
+
+function renderProBenchmark(metrics) {
+  const proSelect = $("proSelect");
+  if (!proSelect.options.length) {
+    Object.keys(PRO_BENCHMARKS).forEach(key => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = key;
+      proSelect.appendChild(opt);
+    });
+  }
+  $("proPanel").classList.remove("hidden");
+  updateProTable(metrics);
+}
+
+function updateProTable(metrics) {
+  const proKey = $("proSelect").value || "Tour Average";
+  const pro = PRO_BENCHMARKS[proKey];
+  if (!pro || !metrics) return;
+
+  const rows = [
+    ["Score", metrics.score, pro.score, "higher"],
+    ["Shoulder Turn", metrics.shoulderTurn + "°", pro.shoulderTurn + "°", "higher"],
+    ["Hip Turn", metrics.hipTurn + "°", pro.hipTurn + "°", "higher"],
+    ["Tempo", metrics.tempoRatio + ":1", pro.tempoRatio + ":1", "tempo"],
+    ["Head Sway", metrics.headSwayCm + " cm", pro.headSwayCm + " cm", "lower"]
+  ];
+
+  let html = `<thead><tr><th>Metric</th><th>You</th><th>${proKey}</th><th>Δ</th></tr></thead><tbody>`;
+  for (const [label, av, bv, mode] of rows) {
+    const aNum = parseFloat(av), bNum = parseFloat(bv);
+    let delta = "—", cls = "";
+    if (!Number.isNaN(aNum) && !Number.isNaN(bNum) && aNum !== bNum) {
+      const diff = aNum - bNum;
+      let better = false;
+      if (mode === "higher") better = diff > 0;
+      else if (mode === "lower") better = diff < 0;
+      else better = Math.abs(aNum - 3) < Math.abs(bNum - 3);
+      cls = better ? "good-text" : "poor-text";
+      delta = (diff > 0 ? "+" : "") + diff.toFixed(1);
+    }
+    html += `<tr><td>${label}</td><td>${av}</td><td>${bv}</td><td class="${cls}">${delta}</td></tr>`;
+  }
+  html += "</tbody>";
+  $("proTable").innerHTML = html;
+  $("proTip").textContent = pro.description;
+}
+
+$("proSelect").addEventListener("change", () => {
+  if (lastMetrics) updateProTable(lastMetrics);
 });
 
 const DB_NAME = "golf-swing-analyser-db";
@@ -1202,11 +1476,15 @@ $("compareModal").addEventListener("click", e => {
 
 againBtn.addEventListener("click", () => {
   resultsEl.classList.add("hidden");
+  $("proPanel").classList.add("hidden");
   againBtn.classList.add("hidden");
   processBtn.classList.add("hidden");
   $("replayPanel").classList.add("hidden");
+  $("exportPngBtn").disabled = true;
+  $("exportClipBtn").disabled = true;
   replayVideo.pause();
   poseBusy = "live";
+  exporting = false;
   recordBtn.classList.remove("hidden");
   recordBtn.classList.remove("recording");
   recordBtn.innerHTML = "🎥 Record Swing";
