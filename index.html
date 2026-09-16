@@ -79,12 +79,20 @@
   .btn.ghost:hover { border-color: var(--accent); color: var(--text); }
 
   .camera-wrap {
-    position: relative; width: 100%; border-radius: 22px; overflow: hidden;
+    position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden;
     background: #000; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--card-border);
   }
-  video { display: block; width: 100%; height: auto; background: #000; }
+  video { display: block; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
   canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .camera-gate {
+    position: absolute; inset: 0; z-index: 6;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 20px; text-align: center;
+    background: rgba(5, 10, 20, 0.72);
+  }
+  .camera-gate p { font-size: 0.8rem; color: var(--muted); max-width: 280px; line-height: 1.45; }
 
   .camera-overlay {
     position: absolute; top: 12px; left: 12px; right: 12px;
@@ -318,12 +326,16 @@
       </div>
       <video id="video" autoplay playsinline muted></video>
       <canvas id="canvas"></canvas>
+      <div id="cameraGate" class="camera-gate">
+        <button id="enableCamBtn" class="btn primary" style="max-width:240px; pointer-events:auto;">📷 Enable Camera</button>
+        <p>Your browser will ask for camera access. Allow it, then you can record a swing.</p>
+      </div>
     </div>
 
-    <div id="status">Loading camera & pose model…</div>
+    <div id="status">Loading pose model… tap Enable Camera when you’re ready.</div>
 
     <div class="action-row">
-      <button id="recordBtn" class="btn primary" disabled>🎥 Record Swing</button>
+      <button id="recordBtn" class="btn primary">📷 Enable Camera</button>
       <button id="processBtn" class="btn primary hidden">🔍 Analyse</button>
       <button id="againBtn" class="btn secondary hidden">🔄 Swing Again</button>
     </div>
@@ -431,7 +443,7 @@ let mediaRecorder = null;
 let mediaChunks = [];
 let isRecording = false;
 let recStartPerf = 0;
-let facingMode = "environment";
+let facingMode = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "environment" : "user";
 let audioCtx = null;
 let analyser = null;
 let freqData = null;
@@ -479,27 +491,48 @@ function getSupportedMimeType() {
   return types.find(t => MediaRecorder.isTypeSupported(t)) || "";
 }
 
+function cameraErrorMessage(err) {
+  const name = err?.name || "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Camera is blocked. Click the lock/camera icon in the address bar → Camera → Allow, then tap Enable Camera.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera found. Plug one in or use a phone.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "Camera is already in use (Zoom, Teams, another tab). Close it and tap Enable Camera.";
+  }
+  if (name === "SecurityError") {
+    return "Camera blocked by the browser. Open this page over https and try again.";
+  }
+  return err?.message ? `Camera error: ${err.message}` : "Could not start the camera.";
+}
+
 async function getStream() {
-  const videoBase = {
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    frameRate: { ideal: 60 }
-  };
-  const attempts = [
-    { video: { ...videoBase, facingMode: { ideal: facingMode } }, audio: true },
-    { video: { ...videoBase, facingMode }, audio: false },
-    { video: true, audio: true },
-    { video: true, audio: false }
+  const videoAttempts = [
+    { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    { facingMode },
+    true
   ];
+  let stream = null;
   let lastErr;
-  for (const constraints of attempts) {
+  for (const video of videoAttempts) {
     try {
-      return await navigator.mediaDevices.getUserMedia(constraints);
+      stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+      break;
     } catch (err) {
       lastErr = err;
     }
   }
-  throw lastErr || new Error("Camera access failed");
+  if (!stream) throw lastErr || new Error("Camera access failed");
+
+  try {
+    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioStream.getAudioTracks().forEach((t) => stream.addTrack(t));
+  } catch {
+    /* impact detection falls back to wrist speed */
+  }
+  return stream;
 }
 
 async function startCamera() {
@@ -510,6 +543,30 @@ async function startCamera() {
   if (video.videoWidth) sizeCanvas();
   else video.onloadedmetadata = sizeCanvas;
   setupAudioAnalysis();
+  $("cameraGate").classList.add("hidden");
+  if (landmarker) {
+    recordBtn.innerHTML = "🎥 Record Swing";
+    recordBtn.disabled = false;
+    statusEl.textContent = "Ready — frame full body + club, then record.";
+  } else {
+    recordBtn.innerHTML = "🎥 Record Swing";
+    statusEl.textContent = "Camera on — loading pose model…";
+  }
+}
+
+async function enableCamera() {
+  statusEl.textContent = "Requesting camera… Allow it in the browser popup.";
+  try {
+    await startCamera();
+    return true;
+  } catch (err) {
+    console.warn(err);
+    $("cameraGate").classList.remove("hidden");
+    recordBtn.innerHTML = "📷 Enable Camera";
+    recordBtn.disabled = false;
+    statusEl.textContent = "⚠️ " + cameraErrorMessage(err);
+    return false;
+  }
 }
 
 function sizeCanvas() {
@@ -570,7 +627,12 @@ async function initPose() {
   } catch {
     landmarker = await createLandmarker(fileset, "CPU");
   }
-  statusEl.textContent = "Ready — frame full body + club, then record.";
+  if (cameraStream) {
+    statusEl.textContent = "Ready — frame full body + club, then record.";
+    recordBtn.innerHTML = "🎥 Record Swing";
+  } else {
+    statusEl.textContent = "Pose model ready — tap Enable Camera to start.";
+  }
   recordBtn.disabled = false;
   drawLoop();
 }
@@ -617,7 +679,18 @@ function drawLoop() {
 }
 
 recordBtn.addEventListener("click", async () => {
-  if (!cameraStream || !landmarker) return;
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    return;
+  }
+  if (!cameraStream) {
+    await enableCamera();
+    return;
+  }
+  if (!landmarker) {
+    statusEl.textContent = "Pose model still loading — wait a second, then tap Record.";
+    return;
+  }
   if (audioCtx?.state === "suspended") {
     try { await audioCtx.resume(); } catch {}
   }
@@ -1496,25 +1569,25 @@ $("clearHistoryBtn").addEventListener("click", () => {
   $("historyPanel").classList.add("hidden");
 });
 
+$("enableCamBtn").addEventListener("click", () => enableCamera());
+
 $("cameraToggle").addEventListener("click", async () => {
   facingMode = facingMode === "user" ? "environment" : "user";
   try {
     await startCamera();
     statusEl.textContent = "Camera switched.";
-  } catch {
-    statusEl.textContent = "⚠️ Could not switch camera.";
+  } catch (err) {
+    statusEl.textContent = "⚠️ " + cameraErrorMessage(err);
   }
 });
 
 renderHistory();
 replayLoop();
 watchAudio();
-startCamera()
-  .then(initPose)
-  .catch(() => {
-    statusEl.textContent = "⚠️ Camera/mic access needed to record. Allow permissions and reload.";
-    recordBtn.disabled = true;
-  });
+initPose().catch((err) => {
+  console.error(err);
+  statusEl.textContent = "⚠️ Could not load the pose model. Check your connection and reload.";
+});
 </script>
 </body>
 </html>
