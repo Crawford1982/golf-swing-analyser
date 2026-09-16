@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy | Free Golf Swing</title>
+<meta name="description" content="How Free Golf Swing handles camera access, swing videos and optional AI tips. Analysis runs on your device. No account required.">
+<link rel="canonical" id="canonical" href="https://freegolfswing.com/privacy.html">
+<link rel="alternate" hreflang="en" href="https://freegolfswing.com/privacy.html">
+<link rel="alternate" hreflang="en-GB" href="https://freegolfswing.co.uk/privacy.html">
+<link rel="alternate" hreflang="x-default" href="https://freegolfswing.com/privacy.html">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0a0f1e">
+<style>
+  :root { --bg-1:#0a0f1e; --bg-2:#141d33; --card:rgba(255,255,255,.06); --card-border:rgba(255,255,255,.1); --accent:#10b981; --text:#f1f5f9; --muted:#94a3b8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:radial-gradient(ellipse at 50% 0%,var(--bg-2),var(--bg-1) 70%); color:var(--text); min-height:100vh; padding:24px 16px 48px; line-height:1.6; }
+  .wrap { max-width:680px; margin:0 auto; }
+  a { color:var(--accent); }
+  h1 { font-size:1.8rem; margin:24px 0 8px; letter-spacing:-.02em; }
+  h2 { font-size:1.1rem; margin:28px 0 8px; }
+  p, li { color:#e2e8f0; margin-bottom:12px; }
+  ul { padding-left:1.2em; }
+  .muted { color:var(--muted); font-size:.85rem; }
+  .card { background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:18px; margin-top:16px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="muted"><a href="./">← Free Golf Swing</a></p>
+    <h1>Privacy</h1>
+    <p class="muted">Last updated 16 September 2026</p>
+    <div class="card">
+      <p>Free Golf Swing is built so your swing stays on your device. This page explains what happens when you use the analyser at freegolfswing.com or freegolfswing.co.uk.</p>
+
+      <h2>Camera and microphone</h2>
+      <p>The analyser asks for camera access so it can record a short swing clip in your browser. Microphone access is optional and only used to help detect impact from the sound of the strike. You can deny the microphone and still analyse a swing. We do not receive a live stream of your camera.</p>
+
+      <h2>Where videos are stored</h2>
+      <p>Recordings are processed in the browser. Swing history (up to 20 swings, including video when the browser allows it) is saved in <strong>IndexedDB on this device</strong>. It is not uploaded to our servers. Clearing site data in your browser, or tapping Clear in the history panel, deletes it.</p>
+
+      <h2>Pose analysis</h2>
+      <p>Body tracking uses Google MediaPipe Pose, which runs locally in your browser after the model files are downloaded from Google’s public model host. Landmark coordinates do not leave your device as part of the scoring.</p>
+
+      <h2>AI coaching tips</h2>
+      <p>If you analyse a swing, the app may send <em>numbers only</em> (score, shoulder turn, hip turn, tempo, head sway, camera view) to Pollinations.ai to generate a short coaching sentence. No video is attached. If that request fails, a local rule-based tip is shown instead.</p>
+
+      <h2>Accounts, cookies and ads</h2>
+      <p>There is no sign-up, no account database, and no advertising network. We do not set tracking cookies. GitHub Pages (the host) may record standard server logs such as IP address and browser type. We do not run a separate analytics product on this site.</p>
+
+      <h2>Children</h2>
+      <p>The tool is intended for golfers who can consent to camera use on their own device. Do not publish clips of children without the appropriate permission.</p>
+
+      <h2>Contact</h2>
+      <p>Questions about this policy: use the GitHub repository for the project or the domain registrant contact on WHOIS for freegolfswing.com.</p>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var host = location.hostname.replace(/^www\./, "");
+      var origin = host === "freegolfswing.co.uk" ? "https://freegolfswing.co.uk" : "https://freegolfswing.com";
+      var canonical = document.getElementById("canonical");
+      if (canonical) canonical.href = origin + "/privacy.html";
+    })();
+  </script>
+</body>
+</html>

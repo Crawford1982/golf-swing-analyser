@@ -1,12 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Free Golf Swing Analyser | On-Device AI Coach, No Sign-Up</title>
+<meta name="description" content="Free golf swing analyser in your browser. On-device pose tracking for tempo, shoulder turn, hip turn and head sway, plus slow-mo replay and AI tips. Private. No account.">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="author" content="Free Golf Swing">
 <meta name="theme-color" content="#0a0f1e">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Free Golf Swing">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>⛳ Free Golf Swing Analyser</title>
+<meta name="application-name" content="Free Golf Swing">
+<link rel="canonical" id="canonical" href="https://freegolfswing.com/">
+<link rel="alternate" hreflang="en" href="https://freegolfswing.com/">
+<link rel="alternate" hreflang="en-GB" href="https://freegolfswing.co.uk/">
+<link rel="alternate" hreflang="x-default" href="https://freegolfswing.com/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Free Golf Swing">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" id="ogurl" content="https://freegolfswing.com/">
+<meta property="og:title" content="Free Golf Swing Analyser | On-Device AI Coach">
+<meta property="og:description" content="Record a swing in your browser. Get tempo, rotation, head sway, slow-mo replay and an AI coaching tip. Free, private, no sign-up.">
+<meta property="og:image" content="https://freegolfswing.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Golf Swing Analyser">
+<meta name="twitter:description" content="On-device golf swing analysis in your browser. No account, no subscription.">
+<meta name="twitter:image" content="https://freegolfswing.com/og.png">
+<script>
+(function () {
+  var host = location.hostname.replace(/^www\./, "");
+  var origin = host === "freegolfswing.co.uk" ? "https://freegolfswing.co.uk" : "https://freegolfswing.com";
+  var path = location.pathname.replace(/index\.html$/i, "");
+  if (path === "") path = "/";
+  var url = origin + path;
+  var c = document.getElementById("canonical");
+  if (c) c.href = url;
+  var og = document.getElementById("ogurl");
+  if (og) og.setAttribute("content", url);
+})();
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://freegolfswing.com/#website",
+      "name": "Free Golf Swing",
+      "url": "https://freegolfswing.com/",
+      "inLanguage": "en-GB",
+      "description": "Free, private, on-device golf swing analyser that runs in the browser."
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://freegolfswing.com/#org",
+      "name": "Free Golf Swing",
+      "url": "https://freegolfswing.com/",
+      "logo": "https://freegolfswing.com/apple-touch-icon.png"
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://freegolfswing.com/#app",
+      "name": "Free Golf Swing Analyser",
+      "url": "https://freegolfswing.com/",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "Any web browser with camera access",
+      "browserRequirements": "Requires a camera. HTTPS required.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+      "featureList": [
+        "On-device pose tracking",
+        "Shoulder and hip turn estimates",
+        "Tempo ratio vs 3:1 tour reference",
+        "Head sway in centimetres",
+        "Slow-motion impact replay",
+        "Swing history stored locally",
+        "Optional AI coaching tip"
+      ],
+      "isAccessibleForFree": true,
+      "inLanguage": "en-GB",
+      "publisher": { "@id": "https://freegolfswing.com/#org" }
+    }
+  ]
+}
+</script>
 
 <style>
   :root {
@@ -31,16 +113,45 @@
     background: radial-gradient(ellipse at 50% 0%, var(--bg-2), var(--bg-1) 70%);
     color: var(--text);
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
     padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
     -webkit-tap-highlight-color: transparent;
   }
 
-  .app {
+  .page {
     width: 100%;
     max-width: 680px;
-    padding: 16px 0 40px;
+    margin: 0 auto;
+    padding: 16px 0 48px;
+  }
+
+  .skip-link {
+    position: absolute; left: 12px; top: -40px; z-index: 300;
+    background: var(--accent); color: #042f1e; padding: 8px 12px; border-radius: 8px; font-weight: 700;
+  }
+  .skip-link:focus { top: 12px; }
+
+  .site-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 4px 0 12px;
+  }
+  .site-brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+  .site-brand strong { font-size: 0.95rem; letter-spacing: -0.02em; }
+  .site-nav { display: flex; gap: 14px; font-size: 0.8rem; }
+  .site-nav a { color: var(--muted); text-decoration: none; }
+  .site-nav a:hover { color: var(--text); }
+
+  .hero { padding: 8px 4px 18px; }
+  .hero h1 {
+    font-size: clamp(1.7rem, 5vw, 2.15rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15;
+  }
+  .hero h1 em { color: var(--accent); font-style: normal; }
+  .hero-lead { color: var(--muted); margin-top: 10px; font-size: 1.02rem; line-height: 1.55; }
+  .hero-actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .hero-actions .btn { max-width: none; width: auto; text-decoration: none; }
+
+  .app {
+    width: 100%;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -53,7 +164,7 @@
     display: grid; place-items: center; font-size: 1.5rem;
     box-shadow: 0 8px 24px var(--accent-glow); flex-shrink: 0;
   }
-  .header h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+  .header h1, .header .tool-title { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
   .header p { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
 
   .controls {
@@ -286,16 +397,65 @@
 
   .footer { text-align: center; font-size: 0.68rem; color: var(--muted); padding: 8px 0 0; line-height: 1.6; }
 
+  .seo-section { margin-top: 28px; }
+  .seo-section h2 { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 10px; }
+  .seo-section h3 { font-size: 1rem; margin: 16px 0 6px; }
+  .seo-section p, .seo-section li { color: #e2e8f0; line-height: 1.55; font-size: 0.95rem; }
+  .seo-section p { margin-bottom: 12px; }
+  .seo-section ol, .seo-section ul { padding-left: 1.2em; margin-bottom: 12px; }
+  .seo-section a { color: var(--accent); }
+  .cite {
+    background: var(--card); border: 1px solid var(--card-border); border-left: 3px solid var(--accent);
+    border-radius: 14px; padding: 14px 16px; margin: 12px 0 16px;
+  }
+  .ref-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 12px 0 16px; }
+  .ref-table th, .ref-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--card-border); }
+  .ref-table th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .faq details {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .faq summary { cursor: pointer; font-weight: 700; }
+  .faq details p { margin: 8px 0 0; color: var(--muted); }
+  .site-footer {
+    margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--card-border);
+    text-align: center; font-size: 0.75rem; color: var(--muted); line-height: 1.7;
+  }
+  .site-footer a { color: var(--muted); }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
 <body>
-  <div class="app">
+  <a class="skip-link" href="#analyser">Skip to analyser</a>
+  <div class="page">
+    <header class="site-header">
+      <a class="site-brand" href="./">
+        <div class="logo" aria-hidden="true">⛳</div>
+        <strong>Free Golf Swing</strong>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#analyser">Analyser</a>
+        <a href="#how">How it works</a>
+        <a href="privacy.html">Privacy</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <h1>Free golf swing <em>analyser</em></h1>
+      <p class="hero-lead">Record a swing with your phone or webcam. See shoulder turn, hip turn, tempo and head sway on your device — then slow-mo replay, history and an AI tip. No account, no subscription, no video upload.</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#analyser">Open the analyser</a>
+        <a class="btn secondary" href="#how">How it works</a>
+      </div>
+    </section>
+
+    <div class="app" id="analyser">
 
     <header class="header">
-      <div class="logo">⛳</div>
+      <div class="logo" aria-hidden="true">⛳</div>
       <div>
-        <h1>Free Swing Analyser</h1>
+        <p class="tool-title">Swing analyser</p>
         <p>On-device · Private · No sign-up</p>
       </div>
     </header>
@@ -412,8 +572,76 @@
 
     <div class="footer">
       Pose analysis runs 100% on your device.<br>
-      Videos & history are stored only in your browser.
+      Videos &amp; history are stored only in your browser.
     </div>
+    </div>
+
+    <section class="seo-section" id="how">
+      <h2>How the free golf swing analyser works</h2>
+      <div class="cite">
+        <p>A golf swing analyser is a tool that measures your motion — typically shoulder turn, hip turn, tempo and head movement — so you can see what the swing actually did, not what it felt like. Free Golf Swing does that in the browser, on your device, from a short camera recording.</p>
+      </div>
+      <ol>
+        <li>Allow camera access and frame your full body plus the club, down-the-line or face-on.</li>
+        <li>Record about five seconds covering backswing, strike and finish.</li>
+        <li>Analyse. On-device pose tracking estimates rotation, tempo (backswing time ÷ downswing time) and head sway in centimetres.</li>
+        <li>Watch impact in slow motion, compare with a previous swing or a tour-player reference, and export a PNG or clip if you want to send it to a coach.</li>
+      </ol>
+      <p>Impact timing prefers the sound of the strike when the microphone is allowed. If it isn’t, the app uses peak wrist speed after the top of the swing. Either way, the video never has to leave the phone.</p>
+    </section>
+
+    <section class="seo-section" id="metrics">
+      <h2>What we measure (and typical tour references)</h2>
+      <p>These are coaching reference ranges, not lab-grade launch-monitor numbers. Use them to spot a pattern across your own swings.</p>
+      <table class="ref-table">
+        <thead>
+          <tr><th>Metric</th><th>What it means</th><th>Typical tour reference</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Shoulder turn</td><td>How much the shoulders rotate from address to the top</td><td>About 90–110°</td></tr>
+          <tr><td>Hip turn</td><td>Pelvis rotation in the backswing</td><td>About 45–55°</td></tr>
+          <tr><td>Tempo</td><td>Backswing time divided by downswing time</td><td>About 3:1</td></tr>
+          <tr><td>Head sway</td><td>How far the head moves during the swing</td><td>Usually under ~8 cm</td></tr>
+        </tbody>
+      </table>
+      <p>You can also compare a swing to stored history, or to simplified profiles labelled Tour Average, Jon Rahm and Nelly Korda. Those profiles are coaching benchmarks inside the app, not captured 3D models of those players.</p>
+    </section>
+
+    <section class="seo-section" id="privacy-summary">
+      <h2>Private by design</h2>
+      <p>Pose estimation runs in the browser with MediaPipe. Up to 20 swings can be saved in IndexedDB on this device. Optional AI tips send metric numbers only — not the video — to a text model. Read the full <a href="privacy.html">privacy policy</a>.</p>
+      <p>This is a free practice tool. It is not a launch monitor, not legal medical advice, and not a substitute for a qualified PGA professional.</p>
+    </section>
+
+    <section class="seo-section faq" id="faq">
+      <h2>Golf swing analyser FAQs</h2>
+      <details>
+        <summary>Is this golf swing analyser really free?</summary>
+        <p>Yes. There is no sign-up and no subscription. Hosting is static. Pose tracking runs on your device. Optional coaching text uses a free public endpoint and falls back to a local tip if that fails.</p>
+      </details>
+      <details>
+        <summary>Does it work on iPhone and in the UK?</summary>
+        <p>Yes — Safari and Chrome on iPhone, and desktop browsers, over HTTPS. Use freegolfswing.co.uk or freegolfswing.com; both names are for this same analyser. On iPhone, allow camera in Settings if the prompt does not appear, and record in good light with your full body in frame.</p>
+      </details>
+      <details>
+        <summary>Do you upload my swing video?</summary>
+        <p>No. Analysis is on-device. History stays in the browser until you clear it. See <a href="privacy.html">privacy</a>.</p>
+      </details>
+      <details>
+        <summary>How accurate is the shoulder turn number?</summary>
+        <p>It is an estimate from a single camera and a lightweight pose model. Lighting, framing, lens distortion and clothing all affect it. Treat trends (your swing vs last week) as more useful than a single degree reading.</p>
+      </details>
+      <details>
+        <summary>What is a good golf swing tempo?</summary>
+        <p>Many tour players sit near a 3:1 ratio: the backswing takes about three times as long as the downswing. The analyser reports your ratio so you can tell if the downswing is rushing or the backswing is dragging.</p>
+      </details>
+    </section>
+
+    <footer class="site-footer">
+      <p><strong>Free Golf Swing</strong> · On-device golf swing analyser</p>
+      <p><a href="https://freegolfswing.com/">freegolfswing.com</a> · <a href="https://freegolfswing.co.uk/">freegolfswing.co.uk</a> · <a href="privacy.html">Privacy</a></p>
+      <p>Updated 16 September 2026</p>
+    </footer>
   </div>
 
   <div class="toast" id="toast"></div>

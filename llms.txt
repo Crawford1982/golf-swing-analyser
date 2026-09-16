@@ -1,0 +1,20 @@
+# Free Golf Swing
+
+> Free Golf Swing is a private, on-device golf swing analyser that runs in the browser. It uses MediaPipe pose tracking on the user’s device to estimate shoulder turn, hip turn, tempo, head sway and impact timing, then offers slow-motion replay, swing history and an optional AI coaching tip. There is no account, no subscription and no video upload to a server.
+
+## Pages
+
+- [Golf swing analyser](https://freegolfswing.com/): Record a swing with the camera, analyse it on-device, compare metrics to tour averages and export impact PNGs or slow-mo clips.
+- [Privacy](https://freegolfswing.com/privacy.html): Videos and history stay in the browser (IndexedDB). Pose estimation runs locally.
+
+## Facts
+
+- Price: £0. No sign-up.
+- Pose estimation: Google MediaPipe Pose Landmarker, on-device.
+- Optional coaching text: Pollinations.ai. If that request fails, a rule-based tip is shown.
+- Typical tour-player reference values used in the app: shoulder turn ~90–110°, hip turn ~45–55°, tempo ~3:1, head sway under ~8 cm.
+- This tool estimates motion from a phone or webcam video. It is not a launch monitor and not a substitute for a qualified golf coach.
+
+## Optional
+
+- [llms.txt](https://freegolfswing.com/llms.txt)
