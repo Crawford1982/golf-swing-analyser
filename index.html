@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>⛳ Free Golf Swing Analyser</title>
+
+<style>
+  :root {
+    --bg-1: #0a0f1e;
+    --bg-2: #141d33;
+    --card: rgba(255, 255, 255, 0.06);
+    --card-border: rgba(255, 255, 255, 0.10);
+    --accent: #10b981;
+    --accent-glow: rgba(16, 185, 129, 0.30);
+    --danger: #ef4444;
+    --warning: #fbbf24;
+    --good: #34d399;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    background: radial-gradient(ellipse at 50% 0%, var(--bg-2), var(--bg-1) 70%);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 680px;
+    padding: 16px 0 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .header { display: flex; align-items: center; gap: 12px; padding: 8px 4px 0; }
+  .logo {
+    width: 46px; height: 46px; border-radius: 14px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    display: grid; place-items: center; font-size: 1.5rem;
+    box-shadow: 0 8px 24px var(--accent-glow); flex-shrink: 0;
+  }
+  .header h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+  .header p { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--card); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border); border-radius: var(--radius); padding: 12px;
+  }
+  .controls label {
+    font-size: 0.7rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px;
+  }
+  .controls select, .controls input {
+    background: rgba(255, 255, 255, 0.1); border: 1px solid var(--card-border);
+    color: var(--text); border-radius: 10px; padding: 7px 10px;
+    font-size: 0.9rem; outline: none; font-family: inherit; width: auto;
+  }
+  .controls select:focus, .controls input:focus { border-color: var(--accent); }
+  .btn.ghost {
+    background: transparent; border: 1px solid var(--card-border); color: var(--muted);
+    padding: 8px 12px; border-radius: 10px; font-size: 0.85rem; cursor: pointer;
+    margin-left: auto; transition: border-color 0.2s, color 0.2s; font-family: inherit;
+  }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  .camera-wrap {
+    position: relative; width: 100%; border-radius: 22px; overflow: hidden;
+    background: #000; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--card-border);
+  }
+  video { display: block; width: 100%; height: auto; background: #000; }
+  canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  .camera-overlay {
+    position: absolute; top: 12px; left: 12px; right: 12px;
+    display: flex; justify-content: space-between; gap: 8px;
+    pointer-events: none; z-index: 5;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0, 0, 0, 0.55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 100px;
+    padding: 6px 12px; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #e2e8f0;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .pill.active { opacity: 1; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: #64748b; }
+  #trackPill.active .dot { background: var(--good); box-shadow: 0 0 8px var(--good); }
+  #recPill .dot { background: var(--danger); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.75); } }
+
+  #status { text-align: center; font-size: 0.85rem; color: var(--muted); min-height: 1.4em; padding: 0 12px; }
+
+  .action-row { display: flex; justify-content: center; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 24px; border: none; border-radius: 100px;
+    font-size: 0.95rem; font-weight: 700; letter-spacing: 0.01em; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s, background 0.2s;
+    -webkit-user-select: none; user-select: none; font-family: inherit;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn.primary {
+    background: linear-gradient(135deg, #10b981, #059669); color: #fff;
+    box-shadow: 0 8px 24px var(--accent-glow); flex: 1; max-width: 280px;
+  }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary.recording { background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35); }
+  .btn.secondary {
+    background: rgba(255, 255, 255, 0.12); border: 1px solid var(--card-border);
+    color: var(--text); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    flex: 1; max-width: 200px;
+  }
+  .btn.small { padding: 8px 14px; font-size: 0.8rem; max-width: none; flex: none; }
+  .btn:disabled { opacity: 0.4; pointer-events: none; }
+  .hidden { display: none !important; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (min-width: 560px) { .metrics-grid { grid-template-columns: repeat(6, 1fr); } }
+  .metric-card {
+    background: var(--card); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border); border-radius: 14px;
+    padding: 14px 8px; text-align: center; animation: fadeUp 0.5s ease both;
+  }
+  .metric-card:nth-child(2) { animation-delay: 0.05s; }
+  .metric-card:nth-child(3) { animation-delay: 0.1s; }
+  .metric-card:nth-child(4) { animation-delay: 0.15s; }
+  .metric-card:nth-child(5) { animation-delay: 0.2s; }
+  .metric-card:nth-child(6) { animation-delay: 0.25s; }
+  .metric-value { font-size: 1.55rem; font-weight: 800; line-height: 1.2; color: var(--good); white-space: nowrap; }
+  .metric-value.good { color: var(--good); }
+  .metric-value.avg  { color: var(--warning); }
+  .metric-value.poor { color: var(--danger); }
+  .metric-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-top: 5px; font-weight: 600; }
+
+  .tip-box {
+    background: var(--card); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border); border-left: 3px solid var(--accent);
+    border-radius: 14px; padding: 14px 16px; font-size: 0.92rem;
+    line-height: 1.5; margin-top: 12px; animation: fadeUp 0.6s ease both;
+  }
+  .tip-box strong {
+    color: var(--accent); font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.1em; display: block; margin-bottom: 4px;
+  }
+
+  .panel {
+    background: var(--card); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px;
+    animation: fadeUp 0.5s ease both;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 12px;
+  }
+  .panel-header h3 { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.01em; }
+
+  .replay-wrap {
+    position: relative; border-radius: 12px; overflow: hidden;
+    background: #000; border: 1px solid var(--card-border);
+  }
+  .replay-controls {
+    display: flex; align-items: center; gap: 10px; margin-top: 10px;
+  }
+  .replay-controls input[type="range"] {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    height: 4px; background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px; outline: none;
+  }
+  .replay-controls input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--accent); border: 3px solid #fff; cursor: pointer;
+  }
+  #replayTime { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+
+  .history-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+  .history-item {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 10px; color: var(--text); text-align: left;
+    cursor: pointer; transition: background 0.2s, border-color 0.2s; font-family: inherit;
+  }
+  .history-item:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--accent); }
+  .history-score { font-size: 1.4rem; font-weight: 800; width: 44px; text-align: center; flex-shrink: 0; }
+  .history-info { min-width: 0; }
+  .history-date { font-size: 0.72rem; color: var(--muted); }
+  .history-metrics { font-size: 0.75rem; color: var(--text); opacity: 0.85; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .modal {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(5, 10, 20, 0.85); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; z-index: 100;
+  }
+  .modal-content {
+    background: #0f172a; border: 1px solid var(--card-border);
+    border-radius: 20px; padding: 20px; max-width: 680px; width: 100%;
+    max-height: 88vh; overflow-y: auto; animation: fadeUp 0.3s ease both;
+  }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .compare-table th {
+    text-align: left; font-size: 0.65rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--card-border);
+  }
+  .compare-table td { padding: 10px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-variant-numeric: tabular-nums; }
+  .good-text { color: var(--good); }
+  .poor-text { color: var(--danger); }
+  .compare-video-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  @media (max-width: 480px) { .compare-video-row { grid-template-columns: 1fr; } }
+  .compare-video-card {
+    position: relative; border-radius: 12px; overflow: hidden;
+    background: #000; border: 1px solid var(--card-border); aspect-ratio: 16 / 9;
+  }
+  .compare-video-card video { width: 100%; height: 100%; object-fit: cover; }
+  .compare-label {
+    position: absolute; top: 8px; left: 8px; z-index: 2;
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; background: rgba(0, 0, 0, 0.6);
+    padding: 4px 10px; border-radius: 100px; color: #e2e8f0;
+  }
+  .play-btn {
+    position: absolute; bottom: 8px; right: 8px; width: 34px; height: 34px;
+    border-radius: 50%; border: none; background: rgba(16, 185, 129, 0.9);
+    color: #fff; font-size: 0.8rem; cursor: pointer; z-index: 2;
+  }
+  .no-video {
+    display: grid; place-items: center; height: 100%;
+    color: var(--muted); font-size: 0.75rem; text-align: center; padding: 12px;
+  }
+
+  .toast {
+    position: fixed; bottom: 18px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #111827; border: 1px solid var(--accent); color: var(--accent);
+    padding: 10px 20px; border-radius: 100px; z-index: 200;
+    opacity: 0; transition: opacity 0.3s, transform 0.3s;
+    font-size: 0.85rem; font-weight: 600; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .footer { text-align: center; font-size: 0.68rem; color: var(--muted); padding: 8px 0 0; line-height: 1.6; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+  <div class="app">
+
+    <header class="header">
+      <div class="logo">⛳</div>
+      <div>
+        <h1>Free Swing Analyser</h1>
+        <p>On-device · Private · No sign-up</p>
+      </div>
+    </header>
+
+    <div class="controls">
+      <label>View
+        <select id="viewMode">
+          <option value="side">Down-line</option>
+          <option value="front">Face-on</option>
+        </select>
+      </label>
+      <label>Hand
+        <select id="handedness">
+          <option value="right">Right</option>
+          <option value="left">Left</option>
+        </select>
+      </label>
+      <label>Ht (cm)
+        <input id="height" type="number" value="175" min="120" max="220" style="width: 68px;">
+      </label>
+      <button id="cameraToggle" class="btn ghost" title="Switch camera">🔄</button>
+    </div>
+
+    <div class="camera-wrap">
+      <div class="camera-overlay">
+        <span class="pill" id="trackPill"><span class="dot"></span>Tracking</span>
+        <span class="pill" id="recPill"><span class="dot"></span>REC</span>
+      </div>
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="status">Loading camera & pose model…</div>
+
+    <div class="action-row">
+      <button id="recordBtn" class="btn primary" disabled>🎥 Record Swing</button>
+      <button id="processBtn" class="btn primary hidden">🔍 Analyse</button>
+      <button id="againBtn" class="btn secondary hidden">🔄 Swing Again</button>
+    </div>
+
+    <div id="results" class="hidden">
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-value" id="score">–</div><div class="metric-label">Score</div></div>
+        <div class="metric-card"><div class="metric-value" id="shoulderTurn">–°</div><div class="metric-label">Shoulder</div></div>
+        <div class="metric-card"><div class="metric-value" id="hipTurn">–°</div><div class="metric-label">Hip</div></div>
+        <div class="metric-card"><div class="metric-value" id="tempo">–</div><div class="metric-label">Tempo</div></div>
+        <div class="metric-card"><div class="metric-value" id="headMove">– cm</div><div class="metric-label">Head Sway</div></div>
+        <div class="metric-card"><div class="metric-value" id="impact">–</div><div class="metric-label">Impact</div></div>
+      </div>
+      <div id="tipBox" class="tip-box hidden">
+        <strong>AI Coach</strong>
+        <div id="tipText"></div>
+      </div>
+    </div>
+
+    <div id="replayPanel" class="panel hidden">
+      <div class="panel-header">
+        <h3>⏪ Impact Replay</h3>
+        <select id="replaySpeed" style="background:rgba(255,255,255,0.1);border:1px solid var(--card-border);color:var(--text);border-radius:8px;padding:4px 8px;font-size:0.75rem;outline:none;">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1">1×</option>
+        </select>
+      </div>
+      <div class="replay-wrap">
+        <video id="replayVideo" muted playsinline></video>
+        <canvas id="replayCanvas"></canvas>
+      </div>
+      <div class="replay-controls">
+        <button id="replayPlay" class="btn secondary small">▶</button>
+        <input type="range" id="replaySeek" min="0" max="100" value="0">
+        <span id="replayTime">0.00s</span>
+      </div>
+    </div>
+
+    <div id="historyPanel" class="panel hidden">
+      <div class="panel-header">
+        <h3>📂 Swing History <span id="historyCount" style="color:var(--muted);font-size:0.7rem;font-weight:400;"></span></h3>
+        <button id="clearHistoryBtn" class="btn ghost" style="font-size:0.75rem;">Clear</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+
+    <div id="compareModal" class="modal hidden">
+      <div class="modal-content">
+        <div class="panel-header" style="margin-bottom:14px;">
+          <h3>⚖️ Swing Comparison</h3>
+          <button id="compareClose" class="btn ghost" style="font-size:1rem;">✕</button>
+        </div>
+        <div id="compareBody"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Pose analysis runs 100% on your device.<br>
+      Videos & history are stored only in your browser.
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script type="module">
+import { FilesetResolver, PoseLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const $ = id => document.getElementById(id);
+const video = $("video");
+const canvas = $("canvas");
+const ctx = canvas.getContext("2d");
+const replayVideo = $("replayVideo");
+const replayCanvas = $("replayCanvas");
+const replayCtx = replayCanvas.getContext("2d");
+
+const statusEl = $("status");
+const recordBtn = $("recordBtn");
+const processBtn = $("processBtn");
+const againBtn = $("againBtn");
+const resultsEl = $("results");
+const trackPill = $("trackPill");
+const recPill = $("recPill");
+
+let landmarker = null;
+let cameraStream = null;
+let mediaRecorder = null;
+let mediaChunks = [];
+let isRecording = false;
+let recStartPerf = 0;
+let facingMode = "environment";
+let audioCtx = null;
+let analyser = null;
+let freqData = null;
+let audioSpikeSec = null;
+let audioBaseline = 10;
+let lastDrawnTime = -1;
+let poseClock = 0;
+let poseBusy = "live";
+let toastTimer = null;
+let compareUrls = [];
+
+function poseTimestamp() {
+  const t = performance.now();
+  poseClock = t <= poseClock ? poseClock + 1 : t;
+  return poseClock;
+}
+
+function cloneLm(points) {
+  return points.map(p => ({ x: p.x, y: p.y, z: p.z, visibility: p.visibility }));
+}
+
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function colorForScore(s) {
+  if (s >= 80) return "var(--good)";
+  if (s >= 60) return "var(--warning)";
+  return "var(--danger)";
+}
+
+function getSupportedMimeType() {
+  const types = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4"
+  ];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+async function getStream() {
+  const videoBase = {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    frameRate: { ideal: 60 }
+  };
+  const attempts = [
+    { video: { ...videoBase, facingMode: { ideal: facingMode } }, audio: true },
+    { video: { ...videoBase, facingMode }, audio: false },
+    { video: true, audio: true },
+    { video: true, audio: false }
+  ];
+  let lastErr;
+  for (const constraints of attempts) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("Camera access failed");
+}
+
+async function startCamera() {
+  if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+  cameraStream = await getStream();
+  video.srcObject = cameraStream;
+  await video.play();
+  if (video.videoWidth) sizeCanvas();
+  else video.onloadedmetadata = sizeCanvas;
+  setupAudioAnalysis();
+}
+
+function sizeCanvas() {
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+}
+
+function setupAudioAnalysis() {
+  if (!cameraStream?.getAudioTracks?.().length) return;
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new Ctx();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  if (window.__audioSrc) window.__audioSrc.disconnect();
+
+  window.__audioSrc = audioCtx.createMediaStreamSource(cameraStream);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 1024;
+  analyser.smoothingTimeConstant = 0.8;
+  window.__audioSrc.connect(analyser);
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+  audioBaseline = 10;
+  audioSpikeSec = null;
+}
+
+function watchAudio() {
+  if (analyser && freqData && isRecording) {
+    analyser.getByteFrequencyData(freqData);
+    const level = freqData.reduce((a, b) => a + b, 0) / freqData.length;
+    audioBaseline = audioBaseline * 0.97 + level * 0.03;
+    const elapsedSec = (performance.now() - recStartPerf) / 1000;
+    if (elapsedSec > 0.4 && level > audioBaseline * 3 + 20 && audioSpikeSec === null) {
+      audioSpikeSec = elapsedSec;
+      navigator.vibrate?.(20);
+    }
+  }
+  requestAnimationFrame(watchAudio);
+}
+
+async function createLandmarker(fileset, delegate) {
+  return PoseLandmarker.createFromOptions(fileset, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      delegate
+    },
+    runningMode: "VIDEO",
+    numPoses: 1
+  });
+}
+
+async function initPose() {
+  const fileset = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  try {
+    landmarker = await createLandmarker(fileset, "GPU");
+  } catch {
+    landmarker = await createLandmarker(fileset, "CPU");
+  }
+  statusEl.textContent = "Ready — frame full body + club, then record.";
+  recordBtn.disabled = false;
+  drawLoop();
+}
+
+const CONNECTIONS = [
+  [11, 12], [11, 23], [12, 24], [23, 24],
+  [11, 13], [13, 15], [12, 14], [14, 16],
+  [23, 25], [25, 27]
+];
+
+function drawSkeleton(lm, c, w, h) {
+  c.clearRect(0, 0, w, h);
+  if (!lm) return;
+  c.lineWidth = 3;
+  c.strokeStyle = "#34d399";
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  for (const [a, b] of CONNECTIONS) {
+    if (!lm[a] || !lm[b]) continue;
+    c.beginPath();
+    c.moveTo(lm[a].x * w, lm[a].y * h);
+    c.lineTo(lm[b].x * w, lm[b].y * h);
+    c.stroke();
+  }
+  c.fillStyle = "#fbbf24";
+  c.beginPath();
+  c.arc(lm[0].x * w, lm[0].y * h, 8, 0, Math.PI * 2);
+  c.fill();
+}
+
+function drawLoop() {
+  if (poseBusy === "live" && video.readyState >= 2 && landmarker && video.currentTime !== lastDrawnTime) {
+    lastDrawnTime = video.currentTime;
+    try {
+      const res = landmarker.detectForVideo(video, poseTimestamp());
+      drawSkeleton(res.landmarks?.[0], ctx, canvas.width, canvas.height);
+      trackPill.classList.toggle("active", Boolean(res.landmarks?.[0]));
+    } catch {
+      trackPill.classList.remove("active");
+    }
+  }
+  if ("requestVideoFrameCallback" in video) video.requestVideoFrameCallback(drawLoop);
+  else requestAnimationFrame(drawLoop);
+}
+
+recordBtn.addEventListener("click", async () => {
+  if (!cameraStream || !landmarker) return;
+  if (audioCtx?.state === "suspended") {
+    try { await audioCtx.resume(); } catch {}
+  }
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    return;
+  }
+
+  mediaChunks = [];
+  audioSpikeSec = null;
+  audioBaseline = 10;
+  isRecording = true;
+  recStartPerf = performance.now();
+
+  const mime = getSupportedMimeType();
+  try {
+    mediaRecorder = mime ? new MediaRecorder(cameraStream, { mimeType: mime }) : new MediaRecorder(cameraStream);
+  } catch {
+    statusEl.textContent = "⚠️ MediaRecorder not supported in this browser.";
+    isRecording = false;
+    return;
+  }
+
+  mediaRecorder.ondataavailable = e => { if (e.data.size) mediaChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    isRecording = false;
+    recordBtn.classList.add("hidden");
+    processBtn.classList.remove("hidden");
+    recPill.classList.remove("active");
+    statusEl.textContent = "Swing captured — tap Analyse.";
+  };
+
+  mediaRecorder.start();
+  recordBtn.classList.add("recording");
+  recordBtn.innerHTML = "⏹️ Stop";
+  recPill.classList.add("active");
+  navigator.vibrate?.(30);
+  statusEl.textContent = "Swing now… auto-stops in 5s";
+
+  setTimeout(() => {
+    if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+  }, 5000);
+});
+
+processBtn.addEventListener("click", async () => {
+  if (!mediaChunks.length || poseBusy === "analyse") return;
+  poseBusy = "analyse";
+  processBtn.classList.add("hidden");
+  statusEl.textContent = "Analysing swing…";
+  video.pause();
+
+  const mime = mediaRecorder?.mimeType || mediaChunks[0]?.type || "video/webm";
+  const blob = new Blob(mediaChunks, { type: mime });
+
+  try {
+    const { frames, duration } = await collectFrames(blob);
+    await analyseSwing(frames, blob, duration);
+  } catch (err) {
+    console.warn(err);
+    statusEl.textContent = "⚠️ Could not read the recording. Try again.";
+    processBtn.classList.remove("hidden");
+    recordBtn.classList.remove("hidden");
+    recordBtn.classList.remove("recording");
+    recordBtn.innerHTML = "🎥 Record Swing";
+  } finally {
+    poseBusy = "live";
+    video.play().catch(() => {});
+  }
+});
+
+function collectFrames(blob) {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement("video");
+    v.src = URL.createObjectURL(blob);
+    v.muted = true;
+    v.playsInline = true;
+    const frames = [];
+    let lastT = -1;
+    let finished = false;
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      const duration = Number.isFinite(v.duration) ? v.duration : (frames.at(-1)?.t || 0);
+      URL.revokeObjectURL(v.src);
+      resolve({ frames, duration });
+    }
+
+    function nextFrame(cb) {
+      if ("requestVideoFrameCallback" in v) v.requestVideoFrameCallback((_, meta) => cb(meta.mediaTime));
+      else requestAnimationFrame(() => cb(v.currentTime));
+    }
+
+    function onFrame(t) {
+      if (finished) return;
+      if (t === lastT) { nextFrame(onFrame); return; }
+      lastT = t;
+      try {
+        const res = landmarker.detectForVideo(v, poseTimestamp());
+        if (res.landmarks?.[0] && res.worldLandmarks?.[0]) {
+          frames.push({
+            t,
+            lm: cloneLm(res.landmarks[0]),
+            world: cloneLm(res.worldLandmarks[0])
+          });
+        }
+      } catch { /* frame skipped */ }
+
+      if (v.ended || (Number.isFinite(v.duration) && v.duration > 0 && t >= v.duration - 0.04)) {
+        finish();
+        return;
+      }
+      nextFrame(onFrame);
+    }
+
+    v.onended = finish;
+    v.onerror = () => reject(new Error("Could not read recording"));
+    v.onloadeddata = () => {
+      v.play().catch(() => {});
+      nextFrame(onFrame);
+    };
+  });
+}
+
+function rotationY(world, a, b) {
+  const p = world[a], q = world[b];
+  if (!p || !q) return 0;
+  return Math.atan2(Math.abs(p.z - q.z), Math.abs(p.x - q.x)) * 180 / Math.PI;
+}
+
+function wristSpeed(prev, curr) {
+  if (!prev) return 0;
+  const isLeftHanded = $("handedness").value === "left";
+  const idx = isLeftHanded ? 16 : 15;
+  const a = prev.world[idx], b = curr.world[idx];
+  if (!a || !b) return 0;
+  const dt = Math.max(curr.t - prev.t, 1e-3);
+  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) / dt;
+}
+
+async function analyseSwing(frames, blob, duration) {
+  if (frames.length < 10) {
+    statusEl.textContent = "⚠️ Lost body tracking — move further back and try again.";
+    processBtn.classList.remove("hidden");
+    recordBtn.classList.remove("hidden");
+    recordBtn.classList.remove("recording");
+    recordBtn.innerHTML = "🎥 Record Swing";
+    return;
+  }
+
+  const address = frames[0];
+  const shoulderVal = Math.max(...frames.map(f => rotationY(f.world, 11, 12)))
+                    - rotationY(address.world, 11, 12);
+  const hipVal = Math.max(...frames.map(f => rotationY(f.world, 23, 24)))
+               - rotationY(address.world, 23, 24);
+
+  const speeds = frames.map((f, i) => ({ t: f.t, s: wristSpeed(frames[i - 1], f) }));
+  const smooth = speeds.map((p, i) => {
+    const win = speeds.slice(Math.max(0, i - 1), i + 2);
+    return { t: p.t, s: win.reduce((a, q) => a + q.s, 0) / win.length };
+  });
+
+  let impactT;
+  if (audioSpikeSec !== null) impactT = audioSpikeSec;
+  else impactT = smooth.reduce((a, b) => (b.s > a.s ? b : a), smooth[0]).t;
+
+  const pre = smooth.filter(p => p.t < impactT);
+  let topT = pre[0]?.t ?? impactT;
+  if (pre.length > 5) {
+    topT = pre.slice(Math.floor(pre.length * 0.2), -1)
+            .reduce((a, b) => (b.s < a.s ? b : a), pre[1] || pre[0]).t;
+  }
+
+  const backswingSec = Math.max(topT - frames[0].t, 0.2);
+  const downswingSec = Math.max(impactT - topT, 0.1);
+  const tempoRatio = backswingSec / downswingSec;
+
+  const heightCm = parseFloat($("height").value) || 175;
+  const sdx = address.lm[11].x - address.lm[12].x;
+  const sdy = address.lm[11].y - address.lm[12].y;
+  const shoulderNorm = Math.hypot(sdx, sdy);
+  const unitsPerCm = shoulderNorm / (0.24 * heightCm);
+
+  const noseXs = frames.map(f => f.lm[0].x);
+  const noseYs = frames.map(f => f.lm[0].y);
+  const headSwayCm = Math.hypot(
+    (Math.max(...noseXs) - Math.min(...noseXs)) / unitsPerCm,
+    (Math.max(...noseYs) - Math.min(...noseYs)) / unitsPerCm
+  );
+
+  let score = 100;
+  if (shoulderVal < 70) score -= Math.round((70 - shoulderVal) * 0.5);
+  if (hipVal < 35) score -= Math.round((35 - hipVal) * 0.4);
+  if (Math.abs(tempoRatio - 3.0) > 0.8) score -= 15;
+  if (headSwayCm > 8) score -= Math.min(20, Math.round((headSwayCm - 8) * 2));
+  score = Math.max(30, Math.min(100, score));
+
+  $("score").textContent = score;
+  $("shoulderTurn").textContent = Math.round(shoulderVal) + "°";
+  $("hipTurn").textContent = Math.round(hipVal) + "°";
+  $("tempo").textContent = tempoRatio.toFixed(1) + ":1";
+  $("headMove").textContent = headSwayCm.toFixed(1) + " cm";
+  $("impact").textContent = impactT.toFixed(2) + "s";
+
+  const scoreEl = $("score");
+  scoreEl.className = "metric-value";
+  if (score >= 80) scoreEl.classList.add("good");
+  else if (score >= 60) scoreEl.classList.add("avg");
+  else scoreEl.classList.add("poor");
+
+  resultsEl.classList.remove("hidden");
+  resultsEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  const metrics = {
+    score,
+    shoulderTurn: Math.round(shoulderVal),
+    hipTurn: Math.round(hipVal),
+    tempoRatio: +tempoRatio.toFixed(2),
+    headSwayCm: +headSwayCm.toFixed(1),
+    impactTime: +impactT.toFixed(3),
+    impactMethod: audioSpikeSec !== null ? "audio" : "wrist",
+    view: $("viewMode").value
+  };
+
+  statusEl.textContent = "Analysis complete.";
+  againBtn.classList.remove("hidden");
+  navigator.vibrate?.(20);
+
+  setupReplay(blob, impactT, duration);
+
+  await saveSwing({
+    timestamp: Date.now(),
+    view: $("viewMode").value,
+    handedness: $("handedness").value,
+    heightCm,
+    metrics,
+    videoBlob: blob
+  });
+  renderHistory();
+
+  const aiTip = await getCoachTip(metrics);
+  $("tipText").textContent = aiTip || fallbackTip(metrics);
+  $("tipBox").classList.remove("hidden");
+}
+
+async function getCoachTip(m) {
+  const view = m.view === "front" ? "face-on" : "down-the-line";
+  const prompt = `You are a professional golf coach helping an amateur golfer. They filmed from the ${view} view.
+Their swing metrics: score ${m.score}/100, shoulder turn ${m.shoulderTurn}°, hip turn ${m.hipTurn}°, tempo ratio ${m.tempoRatio}:1 (tour average ≈ 3:1), head sway ${m.headSwayCm} cm.
+Give ONE specific, encouraging, actionable tip in under 25 words. Focus only on their weakest metric. No preamble — just the tip.`;
+
+  try {
+    const res = await fetch("https://text.pollinations.ai/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 60
+      })
+    });
+    if (res.ok) {
+      const text = (await res.text()).trim();
+      if (text.length > 3) return text;
+    }
+  } catch (e) { console.warn("Pollinations POST failed:", e); }
+
+  try {
+    const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt);
+    const res = await fetch(url);
+    if (res.ok) {
+      const text = (await res.text()).trim();
+      if (text.length > 3) return text;
+    }
+  } catch (e) { console.warn("Pollinations GET failed:", e); }
+
+  return null;
+}
+
+function fallbackTip(m) {
+  if (m.shoulderTurn < 70) return "Turn your shoulders more — feel your back face the target.";
+  if (m.hipTurn < 35) return "Let your hips rotate more in the backswing — don't stay so stiff.";
+  if (m.tempoRatio > 3.8) return "Your backswing is too long relative to your downswing. Smooth it out.";
+  if (m.tempoRatio < 2.4) return "Your downswing is rushing. Keep the transition even and patient.";
+  if (m.headSwayCm > 8) return "Keep your head steady over the ball — reduce body sway.";
+  return "Excellent balanced swing. Keep repeating that feel!";
+}
+
+let replayImpact = 0;
+let replayStart = 0;
+let replayEnd = 1;
+let replayTrail = [];
+let replayLastT = -1;
+const TRAIL_LENGTH = 12;
+
+function setupReplay(blob, impactTime, duration) {
+  $("replayPanel").classList.remove("hidden");
+  if (replayVideo.src) URL.revokeObjectURL(replayVideo.src);
+
+  replayVideo.src = URL.createObjectURL(blob);
+  replayImpact = impactTime;
+  replayStart = Math.max(0, impactTime - 0.5);
+  replayEnd = impactTime + 0.7;
+  replayTrail = [];
+
+  replayVideo.onloadedmetadata = () => {
+    if (Number.isFinite(duration) && duration > 0) replayEnd = Math.min(replayEnd, duration);
+    sizeReplayCanvas();
+    replayVideo.currentTime = replayStart;
+    $("replaySeek").value = 0;
+    $("replayTime").textContent = "0.00s";
+    $("replayPlay").textContent = "▶";
+    replayLastT = -1;
+  };
+  replayVideo.load();
+}
+
+function sizeReplayCanvas() {
+  replayCanvas.width = replayVideo.videoWidth || 1280;
+  replayCanvas.height = replayVideo.videoHeight || 720;
+}
+
+function drawReplayWithTrail(lm) {
+  replayCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
+  if (!lm) return;
+
+  replayTrail.push(cloneLm(lm));
+  if (replayTrail.length > TRAIL_LENGTH) replayTrail.shift();
+
+  replayCtx.lineWidth = 2;
+  for (let i = 1; i < replayTrail.length; i++) {
+    const alpha = (i / replayTrail.length) * 0.35;
+    replayCtx.strokeStyle = `rgba(52, 211, 153, ${alpha})`;
+    const pts = replayTrail[i];
+    for (const [a, b] of CONNECTIONS) {
+      if (!pts[a] || !pts[b]) continue;
+      replayCtx.beginPath();
+      replayCtx.moveTo(pts[a].x * replayCanvas.width, pts[a].y * replayCanvas.height);
+      replayCtx.lineTo(pts[b].x * replayCanvas.width, pts[b].y * replayCanvas.height);
+      replayCtx.stroke();
+    }
+  }
+
+  drawSkeleton(lm, replayCtx, replayCanvas.width, replayCanvas.height);
+}
+
+function replayLoop() {
+  if (poseBusy === "replay" && replayVideo.readyState >= 2 && landmarker && replayVideo.currentTime !== replayLastT) {
+    replayLastT = replayVideo.currentTime;
+    try {
+      const res = landmarker.detectForVideo(replayVideo, poseTimestamp());
+      drawReplayWithTrail(res.landmarks?.[0]);
+    } catch {
+      drawReplayWithTrail(null);
+    }
+  }
+  requestAnimationFrame(replayLoop);
+}
+
+$("replayPlay").addEventListener("click", () => {
+  if (replayVideo.paused) {
+    const rate = parseFloat($("replaySpeed").value);
+    replayVideo.playbackRate = rate;
+    poseBusy = "replay";
+    replayVideo.play().catch(() => {});
+    $("replayPlay").textContent = "⏸";
+  } else {
+    replayVideo.pause();
+    poseBusy = "live";
+    $("replayPlay").textContent = "▶";
+  }
+});
+
+$("replaySpeed").addEventListener("change", () => {
+  if (!replayVideo.paused) replayVideo.playbackRate = parseFloat($("replaySpeed").value);
+});
+
+$("replaySeek").addEventListener("input", () => {
+  replayTrail.length = 0;
+  const frac = parseInt($("replaySeek").value, 10) / 100;
+  poseBusy = "replay";
+  replayVideo.currentTime = replayStart + (replayEnd - replayStart) * frac;
+});
+
+$("replaySeek").addEventListener("change", () => {
+  if (replayVideo.paused) poseBusy = "live";
+});
+
+replayVideo.addEventListener("timeupdate", () => {
+  const total = replayEnd - replayStart;
+  const frac = total > 0 ? (replayVideo.currentTime - replayStart) / total : 0;
+  $("replaySeek").value = Math.min(100, Math.max(0, frac * 100));
+  $("replayTime").textContent = (replayVideo.currentTime - replayImpact).toFixed(2) + "s";
+  if (replayVideo.currentTime >= replayEnd && !replayVideo.paused) {
+    replayVideo.pause();
+    replayVideo.currentTime = replayStart;
+    poseBusy = "live";
+    $("replayPlay").textContent = "▶";
+  }
+});
+
+const DB_NAME = "golf-swing-analyser-db";
+const DB_VERSION = 1;
+const STORE = "swings";
+const MAX_SWINGS = 20;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (db) return resolve(db);
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE)) {
+        d.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveSwing(record) {
+  try {
+    const d = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = d.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).add(record);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    await trimHistory();
+  } catch (e) {
+    if (record.videoBlob) {
+      const { videoBlob, ...rest } = record;
+      await saveSwing(rest);
+    } else {
+      console.warn("Could not save history:", e);
+    }
+  }
+}
+
+async function trimHistory() {
+  const d = await openDB();
+  const tx = d.transaction(STORE, "readonly");
+  const all = await new Promise((resolve, reject) => {
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  if (all.length > MAX_SWINGS) {
+    const sorted = all.sort((a, b) => b.timestamp - a.timestamp);
+    const remove = sorted.slice(MAX_SWINGS);
+    const wtx = d.transaction(STORE, "readwrite");
+    remove.forEach(r => wtx.objectStore(STORE).delete(r.id));
+    await new Promise(resolve => { wtx.oncomplete = resolve; });
+  }
+}
+
+async function getSwings() {
+  const d = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = d.transaction(STORE, "readonly");
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => {
+      const list = req.result.sort((a, b) => b.timestamp - a.timestamp);
+      resolve(list);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function clearHistory() {
+  const d = await openDB();
+  await new Promise((resolve, reject) => {
+    const tx = d.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = resolve;
+    tx.onerror = reject;
+  });
+  renderHistory();
+  showToast("History cleared");
+}
+
+async function renderHistory() {
+  let swings = [];
+  try { swings = await getSwings(); } catch { return; }
+
+  const panel = $("historyPanel");
+  if (!swings.length) { panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+  $("historyCount").textContent = `(${swings.length}/${MAX_SWINGS})`;
+
+  const listEl = $("historyList");
+  listEl.innerHTML = "";
+
+  for (const s of swings) {
+    const m = s.metrics;
+    if (!m) continue;
+    const dt = new Date(s.timestamp);
+    const item = document.createElement("button");
+    item.className = "history-item";
+    item.innerHTML = `
+      <div class="history-score" style="color:${colorForScore(m.score)}">${m.score}</div>
+      <div class="history-info">
+        <div class="history-date">${dt.toLocaleDateString()} ${dt.toLocaleTimeString()} · ${s.view === "front" ? "Face-on" : "Down-line"}</div>
+        <div class="history-metrics">S ${m.shoulderTurn}° · H ${m.hipTurn}° · T ${m.tempoRatio}:1 · Head ${m.headSwayCm}cm</div>
+      </div>
+      <span style="margin-left:auto; color:var(--muted); font-size:1rem;">›</span>
+    `;
+    item.addEventListener("click", () => showCompare(s));
+    listEl.appendChild(item);
+  }
+}
+
+function createCompareTable(a, b) {
+  const rows = [
+    ["Score", a.metrics.score, b.metrics.score, "higher"],
+    ["Shoulder Turn", a.metrics.shoulderTurn + "°", b.metrics.shoulderTurn + "°", "higher"],
+    ["Hip Turn", a.metrics.hipTurn + "°", b.metrics.hipTurn + "°", "higher"],
+    ["Tempo", a.metrics.tempoRatio + ":1", b.metrics.tempoRatio + ":1", "tempo"],
+    ["Head Sway", a.metrics.headSwayCm + " cm", b.metrics.headSwayCm + " cm", "lower"]
+  ];
+
+  let html = `<table class="compare-table">
+    <thead><tr><th>Metric</th><th>This Swing</th><th>Other Swing</th><th>Change</th></tr></thead><tbody>`;
+
+  for (const [label, va, vb, mode] of rows) {
+    const av = parseFloat(va), bv = parseFloat(vb);
+    let delta = "—";
+    let cls = "";
+    if (!Number.isNaN(av) && !Number.isNaN(bv) && av !== bv) {
+      const diff = av - bv;
+      let better = false;
+      if (mode === "higher") better = diff > 0;
+      else if (mode === "lower") better = diff < 0;
+      else better = Math.abs(av - 3) < Math.abs(bv - 3);
+      cls = better ? "good-text" : "poor-text";
+      delta = (diff > 0 ? "+" : "") + diff.toFixed(1);
+    }
+    html += `<tr><td>${label}</td><td>${va}</td><td>${vb}</td><td class="${cls}">${delta}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function createVideoPreview(blob, impactTime, labelText) {
+  const wrap = document.createElement("div");
+  wrap.className = "compare-video-card";
+
+  const label = document.createElement("div");
+  label.className = "compare-label";
+  label.textContent = labelText;
+  wrap.appendChild(label);
+
+  if (blob && blob.size) {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "auto";
+    const url = URL.createObjectURL(blob);
+    compareUrls.push(url);
+    v.src = url;
+    v.onloadedmetadata = () => {
+      v.currentTime = Math.max(0, impactTime - 0.1);
+    };
+    const playBtn = document.createElement("button");
+    playBtn.className = "play-btn";
+    playBtn.textContent = "▶";
+    playBtn.addEventListener("click", () => {
+      if (v.paused) { v.playbackRate = 0.5; v.play(); playBtn.textContent = "⏸"; }
+      else { v.pause(); playBtn.textContent = "▶"; }
+    });
+    v.addEventListener("pause", () => { playBtn.textContent = "▶"; });
+    v.addEventListener("ended", () => { playBtn.textContent = "▶"; });
+    wrap.append(v, playBtn);
+  } else {
+    const noVid = document.createElement("div");
+    noVid.className = "no-video";
+    noVid.textContent = "No video stored for this swing";
+    wrap.appendChild(noVid);
+  }
+  return wrap;
+}
+
+function closeCompare() {
+  compareUrls.forEach(u => URL.revokeObjectURL(u));
+  compareUrls = [];
+  $("compareModal").classList.add("hidden");
+}
+
+async function showCompare(swing) {
+  const swings = await getSwings();
+  const idx = swings.findIndex(s => s.id === swing.id);
+  const other = idx === 0 ? (swings[1] || null) : swings[0];
+  if (!other) {
+    showToast("Need at least two swings to compare");
+    return;
+  }
+
+  compareUrls.forEach(u => URL.revokeObjectURL(u));
+  compareUrls = [];
+  const body = $("compareBody");
+  body.innerHTML = "";
+
+  const tableWrap = document.createElement("div");
+  tableWrap.innerHTML = createCompareTable(swing, other);
+  const videoRow = document.createElement("div");
+  videoRow.className = "compare-video-row";
+  videoRow.append(
+    createVideoPreview(swing.videoBlob, swing.metrics?.impactTime || 0, "This Swing"),
+    createVideoPreview(other.videoBlob, other.metrics?.impactTime || 0, "Other Swing")
+  );
+
+  body.append(tableWrap, videoRow);
+  $("compareModal").classList.remove("hidden");
+}
+
+$("compareClose").addEventListener("click", closeCompare);
+$("compareModal").addEventListener("click", e => {
+  if (e.target === $("compareModal")) closeCompare();
+});
+
+againBtn.addEventListener("click", () => {
+  resultsEl.classList.add("hidden");
+  againBtn.classList.add("hidden");
+  processBtn.classList.add("hidden");
+  $("replayPanel").classList.add("hidden");
+  replayVideo.pause();
+  poseBusy = "live";
+  recordBtn.classList.remove("hidden");
+  recordBtn.classList.remove("recording");
+  recordBtn.innerHTML = "🎥 Record Swing";
+  statusEl.textContent = "Ready — frame your full body, then record.";
+});
+
+$("clearHistoryBtn").addEventListener("click", () => {
+  clearHistory();
+  $("historyPanel").classList.add("hidden");
+});
+
+$("cameraToggle").addEventListener("click", async () => {
+  facingMode = facingMode === "user" ? "environment" : "user";
+  try {
+    await startCamera();
+    statusEl.textContent = "Camera switched.";
+  } catch {
+    statusEl.textContent = "⚠️ Could not switch camera.";
+  }
+});
+
+renderHistory();
+replayLoop();
+watchAudio();
+startCamera()
+  .then(initPose)
+  .catch(() => {
+    statusEl.textContent = "⚠️ Camera/mic access needed to record. Allow permissions and reload.";
+    recordBtn.disabled = true;
+  });
+</script>
+</body>
+</html>
